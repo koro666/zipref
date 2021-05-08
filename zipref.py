@@ -64,7 +64,7 @@ def make_central_header(name: str, st: os.stat_result, crc: int, offset: int) ->
 	dos_tm = get_dos_date_time(st.st_mtime)
 	name = name.encode('utf-8', errors='surrogateescape')
 	extra = Zip64CentralDirectoryFileHeaderExtraField.pack(1, 24, st.st_size, st.st_size, offset)
-	fixed_header = ZipCentralDirectoryFileHeader.pack(0x02014b50, 45, 45, 1 << 11, 0, dos_tm[1], dos_tm[0], crc, 0xffffffff, 0xffffffff, len(name), len(extra), 0, 0, 0, 0, offset)
+	fixed_header = ZipCentralDirectoryFileHeader.pack(0x02014b50, 45, 45, 1 << 11, 0, dos_tm[1], dos_tm[0], crc, 0xffffffff, 0xffffffff, len(name), len(extra), 0, 0, 0, 0, 0xffffffff)
 	return fixed_header + name + extra
 
 def clone_range(src_fd: int, src_offset: int, src_length: int, dst_fd: int,  dst_offset: int) -> None:
