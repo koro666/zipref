@@ -126,13 +126,21 @@ def execute(fd: int, paths: typing.Iterable[str], alignment: int) -> None:
 	data = ZipEndOfCentralDirectoryRecord.pack(0x06054b50, 0, 0, 0xffff, 0xffff, 0xffffffff, 0xffffffff, 0)
 	os.write(fd, data)
 
+def get_paths(paths: typing.Iterable[str]) -> typing.Iterable[str]:
+	for path in paths:
+		if path.startswith('@'):
+			with open(path[1:], 'r') as fp:
+				yield from get_paths(map(str.rstrip, fp))
+		else:
+			yield os.path.normpath(path)
+
 def main(args: list[str]) -> None:
 	if not len(args):
 		return
 
 	fd = os.open(args[0], os.O_RDWR|os.O_CREAT|os.O_EXCL|os.O_NOFOLLOW|os.O_CLOEXEC, 0o666)
 	try:
-		execute(fd, map(os.path.normpath, args[1:]), os.fstatvfs(fd).f_bsize)
+		execute(fd, get_paths(args[1:]), os.fstatvfs(fd).f_bsize)
 	finally:
 		os.close(fd)
 
