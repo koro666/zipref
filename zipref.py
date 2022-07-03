@@ -9,8 +9,6 @@ import zlib
 import fcntl
 
 
-# https://blog.yaakov.online/zip64-go-big-or-go-home/
-
 ZipFileHeader = struct.Struct('<IHHHHHIIIHH')
 Zip64FileHeaderExtraField = struct.Struct('<HHQQ')
 ZipCentralDirectoryFileHeader = struct.Struct('<IHHHHHHIIIHHHHHII')
