@@ -59,16 +59,16 @@ def get_dos_date_time(t: float) -> tuple[int, int]:
 	return (d, t)
 
 
-def make_file_header(name: str, st: os.stat_result, crc: int) -> bytes:
-	dos_tm = get_dos_date_time(st.st_mtime)
+def make_file_header(name: str, st: os.stat_result, crc: int, epoch: typing.Optional[float] = None) -> bytes:
+	dos_tm = get_dos_date_time(st.st_mtime if epoch is None else epoch)
 	bname = name.encode('utf-8', errors='surrogateescape')
 	extra = Zip64FileHeaderExtraField.pack(1, 16, st.st_size, st.st_size)
 	fixed_header = ZipFileHeader.pack(0x04034b50, 45, 1 << 11, 0, dos_tm[1], dos_tm[0], crc, 0xffffffff, 0xffffffff, len(bname), len(extra))
 	return fixed_header + bname + extra
 
 
-def make_central_header(name: str, st: os.stat_result, crc: int, offset: int) -> bytes:
-	dos_tm = get_dos_date_time(st.st_mtime)
+def make_central_header(name: str, st: os.stat_result, crc: int, offset: int, epoch: typing.Optional[float] = None) -> bytes:
+	dos_tm = get_dos_date_time(st.st_mtime if epoch is None else epoch)
 	bname = name.encode('utf-8', errors='surrogateescape')
 	extra = Zip64CentralDirectoryFileHeaderExtraField.pack(1, 24, st.st_size, st.st_size, offset)
 	fixed_header = ZipCentralDirectoryFileHeader.pack(0x02014b50, 45, 45, 1 << 11, 0, dos_tm[1], dos_tm[0], crc, 0xffffffff, 0xffffffff, len(bname), len(extra), 0, 0, 0, 0, 0xffffffff)
@@ -85,7 +85,7 @@ def write_all(fd:int, it: typing.Iterable[bytes]) -> None:
 		os.write(fd, data)
 
 
-def execute(fd: int, paths: typing.Iterable[str], alignment: int) -> None:
+def execute(fd: int, paths: typing.Iterable[str], alignment: int, epoch: typing.Optional[float] = None) -> None:
 	print('[alignment=0x{:08x}]'.format(alignment))
 	datas: list[tuple[str, os.stat_result, int, int]] = []
 	for path in paths:
@@ -98,7 +98,7 @@ def execute(fd: int, paths: typing.Iterable[str], alignment: int) -> None:
 		fd2 = os.open(path, os.O_RDONLY|os.O_NOFOLLOW|os.O_CLOEXEC)
 		try:
 			crc = compute_crc32(progress(chunk_iterator(fd2, 0, st.st_size)))
-			header = make_file_header(path, st, crc)
+			header = make_file_header(path, st, crc, epoch)
 
 			offset = os.lseek(fd, 0, os.SEEK_END)
 			offset = (int((offset + len(header) + alignment - 1) / alignment) * alignment) - len(header)
@@ -123,7 +123,7 @@ def execute(fd: int, paths: typing.Iterable[str], alignment: int) -> None:
 
 	central_start = os.lseek(fd, 0, os.SEEK_END)
 	for path, st, crc, offset in datas:
-		header = make_central_header(path, st, crc, offset)
+		header = make_central_header(path, st, crc, offset, epoch)
 		os.write(fd, header)
 	central_end = os.lseek(fd, 0, os.SEEK_CUR)
 
@@ -150,6 +150,21 @@ def get_paths(paths: typing.Iterable[str]) -> typing.Iterator[str]:
 			yield os.path.normpath(path)
 
 
+def get_epoch() -> typing.Optional[float]:
+	value = os.environ.get('SOURCE_DATE_EPOCH')
+	if value is None:
+		return None
+
+	try:
+		parsed = int(value)
+	except ValueError:
+		return None
+
+	return max(
+		time.mktime((1980, 1, 1, 0, 0, 0, 1, 1, -1)),
+		float(parsed))
+
+
 def main(args: list[str]) -> int:
 	if not len(args):
 		sys.stderr.write('Usage: zipref [zipfile] [file...]\n')
@@ -159,7 +174,7 @@ def main(args: list[str]) -> int:
 		fd = os.open(args[0], os.O_RDWR|os.O_CREAT|os.O_EXCL|os.O_NOFOLLOW|os.O_CLOEXEC, 0o666)
 		try:
 			try:
-				execute(fd, get_paths(args[1:] or ['@-']), os.fstatvfs(fd).f_bsize)
+				execute(fd, get_paths(args[1:] or ['@-']), os.fstatvfs(fd).f_bsize, get_epoch())
 			finally:
 				os.close(fd)
 		except:
