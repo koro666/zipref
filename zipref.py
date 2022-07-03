@@ -86,14 +86,14 @@ def write_all(fd:int, it: typing.Iterable[bytes]) -> None:
 
 
 def execute(fd: int, paths: typing.Iterable[str], alignment: int) -> None:
-	print('[alignment=0x%08x]' % alignment)
+	print('[alignment=0x{:08x}]'.format(alignment))
 	datas: list[tuple[str, os.stat_result, int, int]] = []
 	for path in paths:
 		st = os.lstat(path)
 		if not stat.S_ISREG(st.st_mode):
 			continue
 
-		print('%s...' % path, end='', flush=True)
+		print('{}...'.format(path), end='', flush=True)
 
 		fd2 = os.open(path, os.O_RDONLY|os.O_NOFOLLOW|os.O_CLOEXEC)
 		try:
@@ -105,13 +105,13 @@ def execute(fd: int, paths: typing.Iterable[str], alignment: int) -> None:
 			os.lseek(fd, offset, os.SEEK_SET)
 
 			os.write(fd, header)
-			print('[crc=0x%08x, header=0x%016x]...' % (crc, offset), end='', flush=True)
+			print('[crc=0x{:08x}, header=0x{:016x}]...'.format(crc, offset), end='', flush=True)
 
 			try:
 				clone_range(fd2, 0, st.st_size, fd, offset + len(header))
 				cloned = True
 			except OSError as e:
-				print('[error=%d]...' % e.errno, end='', flush=True)
+				print('[error={}]...'.format(e.errno), end='', flush=True)
 				write_all(fd, progress(chunk_iterator(fd2, 0, st.st_size)))
 				cloned = False
 		finally:
