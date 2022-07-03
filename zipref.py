@@ -129,7 +129,7 @@ def execute(fd: int, paths: typing.Iterable[str], alignment: int) -> None:
 def get_paths(paths: typing.Iterable[str]) -> typing.Iterable[str]:
 	for path in paths:
 		if path.startswith('@'):
-			with open(path[1:], 'r') as fp:
+			with open(path[1:], 'r', encoding=sys.getfilesystemencoding(), errors=sys.getfilesystemencodeerrors()) as fp:
 				yield from get_paths(map(str.rstrip, fp))
 		else:
 			yield os.path.normpath(path)
