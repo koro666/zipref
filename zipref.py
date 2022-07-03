@@ -8,6 +8,7 @@ import time
 import zlib
 import fcntl
 
+
 # https://blog.yaakov.online/zip64-go-big-or-go-home/
 
 ZipFileHeader = struct.Struct('<IHHHHHIIIHH')
@@ -20,6 +21,7 @@ ZipEndOfCentralDirectoryRecord = struct.Struct('<IHHHHIIH')
 
 FileCloneRange = struct.Struct('@qQQQ')
 
+
 def chunk_iterator(fd: int, position: int, length: int, chunk_size: int = 63356) -> typing.Iterable[bytes]:
 	os.lseek(fd, position, os.SEEK_SET)
 	while length:
@@ -28,6 +30,7 @@ def chunk_iterator(fd: int, position: int, length: int, chunk_size: int = 63356)
 			continue
 		length = length - len(data)
 		yield data
+
 
 def progress(it: typing.Iterable[bytes], each: int = 1048576 * 32) -> typing.Iterable[bytes]:
 	position = 0
@@ -39,11 +42,13 @@ def progress(it: typing.Iterable[bytes], each: int = 1048576 * 32) -> typing.Ite
 			written_at = position
 		yield data
 
+
 def compute_crc32(it: typing.Iterable[bytes]) -> int:
 	crc = 0
 	for data in it:
 		crc = zlib.crc32(data, crc)
 	return crc
+
 
 def get_dos_date_time(t: float) -> tuple[int, int]:
 	tm = time.localtime(t)
@@ -53,12 +58,14 @@ def get_dos_date_time(t: float) -> tuple[int, int]:
 
 	return (d, t)
 
+
 def make_file_header(name: str, st: os.stat_result, crc: int) -> bytes:
 	dos_tm = get_dos_date_time(st.st_mtime)
 	bname = name.encode('utf-8', errors='surrogateescape')
 	extra = Zip64FileHeaderExtraField.pack(1, 16, st.st_size, st.st_size)
 	fixed_header = ZipFileHeader.pack(0x04034b50, 45, 1 << 11, 0, dos_tm[1], dos_tm[0], crc, 0xffffffff, 0xffffffff, len(bname), len(extra))
 	return fixed_header + bname + extra
+
 
 def make_central_header(name: str, st: os.stat_result, crc: int, offset: int) -> bytes:
 	dos_tm = get_dos_date_time(st.st_mtime)
@@ -67,13 +74,16 @@ def make_central_header(name: str, st: os.stat_result, crc: int, offset: int) ->
 	fixed_header = ZipCentralDirectoryFileHeader.pack(0x02014b50, 45, 45, 1 << 11, 0, dos_tm[1], dos_tm[0], crc, 0xffffffff, 0xffffffff, len(bname), len(extra), 0, 0, 0, 0, 0xffffffff)
 	return fixed_header + bname + extra
 
+
 def clone_range(src_fd: int, src_offset: int, src_length: int, dst_fd: int,  dst_offset: int) -> None:
 	data = FileCloneRange.pack(src_fd, src_offset, src_length, dst_offset)
 	fcntl.ioctl(dst_fd, 0x4020940d, data, False)
 
+
 def write_all(fd:int, it: typing.Iterable[bytes]) -> None:
 	for data in it:
 		os.write(fd, data)
+
 
 def execute(fd: int, paths: typing.Iterable[str], alignment: int) -> None:
 	print('[alignment=0x%08x]' % alignment)
@@ -126,6 +136,7 @@ def execute(fd: int, paths: typing.Iterable[str], alignment: int) -> None:
 	data = ZipEndOfCentralDirectoryRecord.pack(0x06054b50, 0, 0, 0xffff, 0xffff, 0xffffffff, 0xffffffff, 0)
 	os.write(fd, data)
 
+
 def get_paths(paths: typing.Iterable[str]) -> typing.Iterable[str]:
 	for path in paths:
 		if path.startswith('@'):
@@ -133,6 +144,7 @@ def get_paths(paths: typing.Iterable[str]) -> typing.Iterable[str]:
 				yield from get_paths(map(str.rstrip, fp))
 		else:
 			yield os.path.normpath(path)
+
 
 def main(args: list[str]) -> None:
 	if not len(args):
@@ -143,6 +155,7 @@ def main(args: list[str]) -> None:
 		execute(fd, get_paths(args[1:]), os.fstatvfs(fd).f_bsize)
 	finally:
 		os.close(fd)
+
 
 if __name__ == '__main__':
 	main(sys.argv[1:])
