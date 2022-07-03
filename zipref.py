@@ -45,7 +45,7 @@ def compute_crc32(it: typing.Iterable[bytes]) -> int:
 		crc = zlib.crc32(data, crc)
 	return crc
 
-def get_dos_date_time(t: int) -> tuple[int, int]:
+def get_dos_date_time(t: float) -> tuple[int, int]:
 	tm = time.localtime(t)
 
 	d = ((tm.tm_year - 1980) << 9) | (tm.tm_mon << 5) | tm.tm_mday
@@ -55,17 +55,17 @@ def get_dos_date_time(t: int) -> tuple[int, int]:
 
 def make_file_header(name: str, st: os.stat_result, crc: int) -> bytes:
 	dos_tm = get_dos_date_time(st.st_mtime)
-	name = name.encode('utf-8', errors='surrogateescape')
+	bname = name.encode('utf-8', errors='surrogateescape')
 	extra = Zip64FileHeaderExtraField.pack(1, 16, st.st_size, st.st_size)
-	fixed_header = ZipFileHeader.pack(0x04034b50, 45, 1 << 11, 0, dos_tm[1], dos_tm[0], crc, 0xffffffff, 0xffffffff, len(name), len(extra))
-	return fixed_header + name + extra
+	fixed_header = ZipFileHeader.pack(0x04034b50, 45, 1 << 11, 0, dos_tm[1], dos_tm[0], crc, 0xffffffff, 0xffffffff, len(bname), len(extra))
+	return fixed_header + bname + extra
 
 def make_central_header(name: str, st: os.stat_result, crc: int, offset: int) -> bytes:
 	dos_tm = get_dos_date_time(st.st_mtime)
-	name = name.encode('utf-8', errors='surrogateescape')
+	bname = name.encode('utf-8', errors='surrogateescape')
 	extra = Zip64CentralDirectoryFileHeaderExtraField.pack(1, 24, st.st_size, st.st_size, offset)
-	fixed_header = ZipCentralDirectoryFileHeader.pack(0x02014b50, 45, 45, 1 << 11, 0, dos_tm[1], dos_tm[0], crc, 0xffffffff, 0xffffffff, len(name), len(extra), 0, 0, 0, 0, 0xffffffff)
-	return fixed_header + name + extra
+	fixed_header = ZipCentralDirectoryFileHeader.pack(0x02014b50, 45, 45, 1 << 11, 0, dos_tm[1], dos_tm[0], crc, 0xffffffff, 0xffffffff, len(bname), len(extra), 0, 0, 0, 0, 0xffffffff)
+	return fixed_header + bname + extra
 
 def clone_range(src_fd: int, src_offset: int, src_length: int, dst_fd: int,  dst_offset: int) -> None:
 	data = FileCloneRange.pack(src_fd, src_offset, src_length, dst_offset)
@@ -77,7 +77,7 @@ def write_all(fd:int, it: typing.Iterable[bytes]) -> None:
 
 def execute(fd: int, paths: typing.Iterable[str], alignment: int) -> None:
 	print('[alignment=0x%08x]' % alignment)
-	datas: list[tuple[str, os.stat_result, int]] = []
+	datas: list[tuple[str, os.stat_result, int, int]] = []
 	for path in paths:
 		st = os.lstat(path)
 		if not stat.S_ISREG(st.st_mode):
