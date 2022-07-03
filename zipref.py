@@ -22,7 +22,7 @@ ZipEndOfCentralDirectoryRecord = struct.Struct('<IHHHHIIH')
 FileCloneRange = struct.Struct('@qQQQ')
 
 
-def chunk_iterator(fd: int, position: int, length: int, chunk_size: int = 63356) -> typing.Iterable[bytes]:
+def chunk_iterator(fd: int, position: int, length: int, chunk_size: int = 63356) -> typing.Iterator[bytes]:
 	os.lseek(fd, position, os.SEEK_SET)
 	while length:
 		data = os.read(fd, min(chunk_size, length))
@@ -32,7 +32,7 @@ def chunk_iterator(fd: int, position: int, length: int, chunk_size: int = 63356)
 		yield data
 
 
-def progress(it: typing.Iterable[bytes], each: int = 1048576 * 32) -> typing.Iterable[bytes]:
+def progress(it: typing.Iterable[bytes], each: int = 1048576 * 32) -> typing.Iterator[bytes]:
 	position = 0
 	written_at = 0
 	for data in it:
@@ -137,7 +137,7 @@ def execute(fd: int, paths: typing.Iterable[str], alignment: int) -> None:
 	os.write(fd, data)
 
 
-def get_paths(paths: typing.Iterable[str]) -> typing.Iterable[str]:
+def get_paths(paths: typing.Iterable[str]) -> typing.Iterator[str]:
 	for path in paths:
 		if path.startswith('@'):
 			with open(path[1:], 'r', encoding=sys.getfilesystemencoding(), errors=sys.getfilesystemencodeerrors()) as fp:
