@@ -150,16 +150,29 @@ def get_paths(paths: typing.Iterable[str]) -> typing.Iterator[str]:
 			yield os.path.normpath(path)
 
 
-def main(args: list[str]) -> None:
+def main(args: list[str]) -> int:
 	if not len(args):
-		return
+		sys.stderr.write('Usage: zipref [zipfile] [file...]\n')
+		return 1
 
-	fd = os.open(args[0], os.O_RDWR|os.O_CREAT|os.O_EXCL|os.O_NOFOLLOW|os.O_CLOEXEC, 0o666)
 	try:
-		execute(fd, get_paths(args[1:] or ['@-']), os.fstatvfs(fd).f_bsize)
-	finally:
-		os.close(fd)
+		fd = os.open(args[0], os.O_RDWR|os.O_CREAT|os.O_EXCL|os.O_NOFOLLOW|os.O_CLOEXEC, 0o666)
+		try:
+			try:
+				execute(fd, get_paths(args[1:] or ['@-']), os.fstatvfs(fd).f_bsize)
+			finally:
+				os.close(fd)
+		except:
+			os.unlink(args[0])
+			raise
+	except Exception as e:
+		sys.stderr.write('{}\n'.format(e))
+		return 1
+	except KeyboardInterrupt:
+		return 1
+	else:
+		return 0
 
 
 if __name__ == '__main__':
-	main(sys.argv[1:])
+	sys.exit(main(sys.argv[1:]))
