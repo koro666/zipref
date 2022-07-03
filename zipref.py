@@ -140,8 +140,12 @@ def execute(fd: int, paths: typing.Iterable[str], alignment: int) -> None:
 def get_paths(paths: typing.Iterable[str]) -> typing.Iterator[str]:
 	for path in paths:
 		if path.startswith('@'):
-			with open(path[1:], 'r', encoding=sys.getfilesystemencoding(), errors=sys.getfilesystemencodeerrors()) as fp:
-				yield from get_paths(map(str.rstrip, fp))
+			path = path[1:]
+			if path == '-':
+				yield from get_paths(map(str.rstrip, sys.stdin))
+			else:
+				with open(path, 'r', encoding=sys.getfilesystemencoding(), errors=sys.getfilesystemencodeerrors()) as fp:
+					yield from get_paths(map(str.rstrip, fp))
 		else:
 			yield os.path.normpath(path)
 
@@ -152,7 +156,7 @@ def main(args: list[str]) -> None:
 
 	fd = os.open(args[0], os.O_RDWR|os.O_CREAT|os.O_EXCL|os.O_NOFOLLOW|os.O_CLOEXEC, 0o666)
 	try:
-		execute(fd, get_paths(args[1:]), os.fstatvfs(fd).f_bsize)
+		execute(fd, get_paths(args[1:] or ['@-']), os.fstatvfs(fd).f_bsize)
 	finally:
 		os.close(fd)
 
